@@ -1,0 +1,54 @@
+spring:
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]': # 匹配所有请求
+            allowedOrigins: "*" #跨域处理 允许所有的域
+            allowedMethods: # 支持的方法
+              - GET
+              - POST
+              - PUT
+              - DELETE
+      routes:
+        - id: changgou_goods_route
+          uri: lb://goods    #lb开头后接服务名，会自动做负载均衡，自动获取goods服务中的某一个，假如有多个的话
+          predicates:
+          #- Host=cloud.itheima.com**  #所有以cloud.itheima.com(注意不带协议)开头的请求都会路由到localhost:18081服务上
+          #- Path=/brand/**  #所有以/brand/(注意是路径，不带域名和端口号)开头的请求都会路由到localhost:18081服务上
+            - Path=/api/brand**
+          filters:
+            #- PrefixPath=/brand   #所有请求路径中加一个/brand前缀路径  例如 localhost:8001/1001，真实路径是localhost:18081/brand/1001
+            - StripPrefix=1  #过滤掉路径中第一个，localhost:8001/api/brand 真实路径: localhost:18081/brand
+            - name: RequestRateLimiter  #请求数限流 名字不能随便写 ，使用默认的facatory
+              args:
+                key-resolver: "#{@ipKeyResolver}"     #bean的名称
+                redis-rate-limiter.replenishRate: 1   #希望允许用户每秒执行多少请求，而不会丢弃任何请求。这是令牌桶填充的速率
+                redis-rate-limiter.burstCapacity: 1   #令牌桶的容量，允许在一秒钟内完成的最大请求数,将此值设置为零将阻止所有请求
+        - id: changgou_user_route
+          uri: lb://user
+          predicates:
+            - Path=/api/user/**,/api/address/**,/api/areas/**,/api/cities/**,/api/provinces/**
+          filters:
+            - StripPrefix=1
+
+  application:
+    name: gateway-web
+  redis:
+    host: 192.168.118.132
+    port: 6379
+server:
+  port: 8001
+eureka:
+  client:
+    service-url:
+      defaultZone: http://127.0.0.1:7001/eureka
+  instance:
+    prefer-ip-address: true
+management:
+  endpoint:
+    gateway:
+      enabled: true
+    web:
+      exposure:
+        include: true
